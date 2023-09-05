@@ -1,0 +1,286 @@
+package com.swperfi.armadeira.savefile
+
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
+import android.net.wifi.WifiManager
+import android.os.BatteryManager
+import android.os.Build
+import android.os.Environment
+import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
+import com.opencsv.CSVWriter
+import com.swperfi.domain.collect.battery.BatteryCollect
+import com.swperfi.domain.collect.bluetooth.BluetoothCollect
+import com.swperfi.domain.collect.device.DeviceCollect
+import com.swperfi.domain.collect.location.LocationCollect
+import com.swperfi.domain.collect.memory.MemoryCollect
+import com.swperfi.domain.collect.mobiledata.MobileDataCollect
+import com.swperfi.domain.collect.wifi.WifiCollect
+import com.swperfi.domain.utils.datacollect.DataCollect
+import java.io.File
+import java.io.FileWriter
+import java.io.IOException
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+
+@Suppress("DEPRECATION")
+class SaveFileData {
+    @RequiresApi(Build.VERSION_CODES.P, Build.VERSION_CODES.Q)
+    @RequiresPermission(allOf = [Manifest.permission.READ_PHONE_STATE, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION])
+    fun saveDataCsv(context: Context) {
+        val dc = DeviceCollect()
+        val lc = LocationCollect()
+        val mc = MobileDataCollect()
+        val wc = WifiCollect()
+        val bc = BluetoothCollect()
+        val bt = BatteryCollect()
+        val mem = MemoryCollect()
+
+        val wifiManager =
+            context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+
+        val directoryPath =
+            (Environment.getExternalStorageDirectory().path + "/Documents/Armadeira/Log")
+        val bfile = File(directoryPath)
+        if (!bfile.exists()) {
+            bfile.mkdirs()
+        }
+        val bfile2 = File(directoryPath, DataCollect().getCsvNameMobile())
+
+        val deviceId = dc.getDeviceId(context)
+        val model = dc.getModelAndroid()
+        val locationStatus = lc.isLocationDataEnabled(context)
+        val mobileStatus = mc.getMobileConnectionStatus(context)
+        val networkOperator = mc.getNetworkOperator(context)
+        val netType = mc.getMobileConnectionMode(context)
+        val dbm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            mc.getDbm(context)
+        } else {
+            TODO("VERSION.SDK_INT < Q")
+        }
+        val rsrp = mc.getRsrp(context)
+        val rsrq = mc.getRsrq(context)
+        val rssi = mc.getRssi(context)
+        val rssnr = mc.getRssnr(context)
+        val cqi = mc.getCqi(context)
+        val rx = mc.getMobileRx()
+        val tx = mc.getMobileTx()
+        val downstreamBandwidth = mc.getDownstreamBandwidthMobile(context)
+        val upstreamBandwidth = mc.getUpstreamBandwidthMobile(context)
+        val asuLevel = mc.getAsuLevel(context)
+        val level = mc.getLevel(context)
+        val earfcn = mc.getEarfcn(context)
+        val band = mc.getBand(context)
+        val frequency = mc.getNominalFrequency(context)
+        val downLinkFrequency = mc.getDownlinkFrequency(context)
+        val upLinkFrequency = mc.getUplinkFrequency(context)
+        val ci = mc.getCi(context)
+        val pci = mc.getPci(context)
+        val tag = mc.getTac(context)
+        val mcc = mc.getChipMcc(context)
+        val mnc = mc.getChipMnc(context)
+        val chipOperator = mc.getChipOperator(context)
+        val roaming = mc.getMobileRoaming(context)
+
+        val wifiStatus = wc.getStatusWifi(context).toString()
+        val ssid = wc.wifiSSID(context)
+        val ip = wc.getWifiIpDevice(wifiManager)
+        val wifiDownstreamBandwidth = wc.getDownstreamBandwidthWifi(context).toString()
+        val wifiUpstreamBandwidth = wc.getUpstreamBandwidthWifi(context).toString()
+        val wifiSignalLevel = wc.wifiSignalLevel(wifiManager)
+        val networkId = wc.wifiNetworkId(wifiManager)
+        val wifiSpeed = wc.wifiSpeed(wifiManager)
+        val wifiTxLinkSpeed = wc.wifiTxLinkSpeed(wifiManager)
+        val wifiRxLinkSpeed = wc.wifiRxLinkSpeed(wifiManager)
+        val wifiFrequency = wc.wifiFrequency(wifiManager)
+        val wifiRssi = wc.wifiRssi(wifiManager)
+        val wifiWap = wc.wifiWap(wifiManager)
+        var wifiMaxSupportedTxLinkSpeed: String? = null
+        var wifiMaxSupportedRxLinkSpeed: String? = null
+        var wifiStandard: String? = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            wifiMaxSupportedTxLinkSpeed =
+                wc.wifiMaxSupportedTxLinkSpeed(wifiManager)
+            wifiMaxSupportedRxLinkSpeed =
+                wc.wifiMaxSupportedRxLinkSpeed(wifiManager)
+            wifiStandard = wc.wifiStandard(wifiManager)
+        }
+
+        val bluetoothStatus = bc.getBluetoothStatus(context).toString()
+
+        val levelBattery = bt.getBatteryLevel(context)
+        val batteryHealth = bt.getBatteryHealth(context)
+        val batteryConnectionStatus = bt.getBatteryConnectionStatus(context)
+        val batteryChargingStatus = bt.getBatteryChargingStatus(context)
+        val batteryTemperature = bt.getBatteryTemperature(context)
+        val batteryCurrent = bt.getBatteryCurrent(context)
+        val batteryVoltage = bt.getBatteryVoltage(context)
+        val batteryPower = bt.getBatteryPower(context)
+        val batteryCapacity = bt.getBatteryCapacity(context)
+        val batteryPresence = bt.getBatteryPresence(context)
+
+        val availableRAM = mem.getRamAvailMem(context)
+        val totalRAM = mem.getRamTotalMem(context)
+        val usedRAM = mem.getUsedMemoryRam(context)
+        val memory = mem.getMemory()
+        val freeMemory = mem.getFreeMemory()
+        val criticismRAM = mem.getRamLowMemory(context)
+
+        val latitude = lc.latitude()
+        val longitude = lc.longitude()
+
+        val currentDateTime = dc.getCurrentDateTime()
+//        Log.d("TESTE", "time: $currentDateTime")
+
+
+        if (!bfile2.exists()) {
+            val writer: CSVWriter?
+            try {
+                writer = CSVWriter(FileWriter(bfile2, true), ',', CSVWriter.DEFAULT_QUOTE_CHARACTER)
+
+               // writer.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        } else {
+            val writer: CSVWriter?
+            try {
+                writer = CSVWriter(FileWriter(bfile2, true), ',', CSVWriter.DEFAULT_QUOTE_CHARACTER)
+                val data: MutableList<Array<String?>> = ArrayList()
+                data.add(
+                    arrayOf(
+                        deviceId,
+                        model,
+                        currentDateTime,
+                        locationStatus,
+                        latitude,
+                        longitude,
+                        mobileStatus,
+                        networkOperator,
+                        netType,
+                        dbm,
+                        rsrp,
+                        rsrq,
+                        rssi,
+                        rssnr,
+                        cqi,
+                        rx,
+                        tx,
+                        downstreamBandwidth,
+                        upstreamBandwidth,
+                        asuLevel,
+                        level,
+                        earfcn,
+                        band,
+                        frequency,
+                        downLinkFrequency,
+                        upLinkFrequency,
+                        ci,
+                        pci,
+                        tag,
+                        mcc,
+                        mnc,
+                        chipOperator,
+                        roaming,
+
+                        wifiStatus,
+                        ssid,
+                        ip,
+                        wifiSignalLevel,
+                        networkId,
+                        wifiDownstreamBandwidth,
+                        wifiUpstreamBandwidth,
+                        wifiSpeed,
+                        wifiTxLinkSpeed,
+                        wifiRxLinkSpeed,
+                        wifiMaxSupportedTxLinkSpeed,
+                        wifiMaxSupportedRxLinkSpeed,
+                        wifiFrequency,
+                        wifiStandard,
+                        wifiRssi,
+                        wifiWap,
+
+                        bluetoothStatus,
+
+                        levelBattery,
+                        batteryHealth,
+                        batteryConnectionStatus,
+                        batteryChargingStatus,
+                        batteryTemperature,
+                        batteryCurrent,
+                        batteryVoltage,
+                        batteryPower,
+                        batteryCapacity,
+                        batteryPresence,
+
+                        memory,
+                        freeMemory,
+                        availableRAM,
+                        totalRAM,
+                        usedRAM,
+                        criticismRAM
+                    )
+                )
+                writer.writeAll(data) // data is adding to csv
+                writer.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+        if (bfile2.exists()) {
+            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+
+            // ...
+
+            if (wifiManager.isWifiEnabled && wifiManager.connectionInfo.networkId != -1) {
+                val batteryStatus: Intent? = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                val isCharging = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) == BatteryManager.BATTERY_STATUS_FULL
+
+                if (isCharging) {
+                    val storage = FirebaseStorage.getInstance()
+                    val storageRef = storage.reference
+                    val remoteCsvPath = "path_to_storage/data.csv" // path to data.csv in Firebase Storage
+                    val remoteFileReference = storageRef.child(remoteCsvPath)
+                    // Download the remote CSV file
+                    val localCsvFile = File.createTempFile("downloaded_data", "csv")
+                    remoteFileReference.getFile(localCsvFile).addOnSuccessListener {
+                        // Append the local data to the downloaded file
+                        val writer = FileWriter(localCsvFile, true)
+                        val reader = bfile2.bufferedReader()
+                        reader.forEachLine { line ->
+                            writer.appendln(line)
+                        }
+                        reader.close()
+                        writer.close()
+
+                        // Upload the updated file back to Firebase Storage
+                        val uploadTask = remoteFileReference.putFile(Uri.fromFile(localCsvFile))
+
+                        uploadTask.addOnSuccessListener {
+                            // Upload successful
+                            // You can perform some action after the upload if needed
+                        }.addOnFailureListener { exception ->
+                            // Upload failed
+                            // You can handle the error here
+                        }
+                    }.addOnFailureListener { exception ->
+                        // Download failed
+                        // You can handle the error here
+                    }
+
+                } else {
+                    // Dispositivo não está conectado ao carregador
+
+                }
+            } else {
+                // Dispositivo não está conectado a uma rede Wi-Fi
+            }
+
+        }
+
+    }
+}
